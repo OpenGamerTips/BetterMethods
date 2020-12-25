@@ -2,7 +2,6 @@
 --/ Author: H3x0R
 --/ Notes: None!
 
-if __metamethodcustomizerran then return true end
 getgenv().__metamethodcustomizerran = true
 local CustomMethodTable, CustomMetaHooktable = {}, {}
 local HookedREvents, HookedRFunctions = {}, {}
@@ -11,46 +10,48 @@ local HookedBEvents, HookedBFunctions = {}, {}
 local GameMeta = getrawmetatable(game)
 local GameMetaROState = isreadonly(GameMeta)
 local __bindex, __bnamecall = GameMeta.__index, GameMeta.__namecall
-if GameMetaROState == true then setreadonly(GameMeta, false) end
-GameMeta.__namecall = newcclosure(function(self, ...)
-    local Args, Method, Caller = {...}, getnamecallmethod(), getfenv(2).script
-    local CMethod = CustomMethodTable[Method]
-    if CMethod then 
-        return CMethod(self, Args)
-    else
-        -- Hooking
-        if (self.ClassName == "RemoteEvent" or self.ClassName == "RemoteFunction") and (Method == "FireServer" or Method == "InvokeServer") then
-            local H1, H2 = HookedREvents[self], HookedRFunctions[self]
-            local Res;
-            if H1 then
-                Res = H1(Caller, Args)
-            elseif H2 then
-                Res = H2(Caller, Args)
+if not __metamethodcustomizerran then
+    if GameMetaROState == true then setreadonly(GameMeta, false) end
+    GameMeta.__namecall = newcclosure(function(self, ...)
+        local Args, Method, Caller = {...}, getnamecallmethod(), getfenv(2).script
+        local CMethod = CustomMethodTable[Method]
+        if CMethod then 
+            return CMethod(self, Args)
+        else
+            -- Hooking
+            if (self.ClassName == "RemoteEvent" or self.ClassName == "RemoteFunction") and (Method == "FireServer" or Method == "InvokeServer") then
+                local H1, H2 = HookedREvents[self], HookedRFunctions[self]
+                local Res;
+                if H1 then
+                    Res = H1(Caller, Args)
+                elseif H2 then
+                    Res = H2(Caller, Args)
+                end
+
+                if type(Res) ~= "table" then warn("Invalid return for remote hook. Reset call.") return __bnamecall(self, ...) end
+                Args = Res
+            elseif (self.ClassName == "BindableEvent" or self.ClassName == "BindableFunction") and (Method == "Fire" or Method == "Invoke") then
+                local H1, H2 = HookedREvents[self], HookedRFunctions[self]
+                local Res;
+                if H1 then
+                    Res = H1(Caller, Args)
+                elseif H2 then
+                    Res = H2(Caller, Args)
+                end
+
+                if type(Res) ~= "table" then warn("Invalid return for bindable hook. Reset call.") return __bnamecall(self, ...) end
+                Args = Res
+            end
+        
+            for _, Callback in pairs(CustomMetaHooktable) do
+                Callback(self, Args)
             end
 
-            if type(Res) ~= "table" then warn("Invalid return for remote hook. Reset call.") return __bnamecall(self, ...) end
-            Args = Res
-        elseif (self.ClassName == "BindableEvent" or self.ClassName == "BindableFunction") and (Method == "Fire" or Method == "Invoke") then
-            local H1, H2 = HookedREvents[self], HookedRFunctions[self]
-            local Res;
-            if H1 then
-                Res = H1(Caller, Args)
-            elseif H2 then
-                Res = H2(Caller, Args)
-            end
-
-            if type(Res) ~= "table" then warn("Invalid return for bindable hook. Reset call.") return __bnamecall(self, ...) end
-            Args = Res
+            return __bnamecall(self, unpack(Args))
         end
-    
-        for _, Callback in pairs(CustomMetaHooktable) do
-            Callback(self, Args)
-        end
-
-        return __bnamecall(self, unpack(Args))
-    end
-end)
-setreadonly(GameMeta, GameMetaROState)
+    end)
+    setreadonly(GameMeta, GameMetaROState)
+end
 
 local SafeCall = newcclosure(function(Closure, ...)
     local Args = {pcall(Closure, ...)}
